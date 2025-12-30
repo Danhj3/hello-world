@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor Electoral SCZ 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 100vh; width: 100%; background: #f8fafc; }
+        .active-btn { background-color: white !important; color: #e11d48 !important; border-color: #e11d48 !important; }
+    </style>
+</head>
+<body class="bg-slate-50 overflow-hidden">
+
+    <div class="absolute top-6 left-6 z-[1000] w-72">
+        <div class="bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-2xl border border-white">
+            <h1 class="font-black text-slate-800 text-lg mb-4 text-center">SCZ 2026</h1>
+            <div class="bg-slate-200/50 p-1 rounded-2xl flex font-bold text-[10px] tracking-tighter">
+                <button onclick="changeView('dept')" id="btn-dept" class="active-btn flex-1 py-3 rounded-xl transition-all border-2 border-transparent">
+                    DEPARTAMENTAL
+                </button>
+                <button onclick="changeView('mun')" id="btn-mun" class="flex-1 py-3 rounded-xl transition-all border-2 border-transparent text-slate-500">
+                    MUNICIPAL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // Inicializar Mapa
+        const map = L.map('map', { zoomControl: false }).setView([-17.7833, -63.1821], 6);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        let currentLayer = null;
+
+        async function loadLayer(filename, isDept) {
+            if (currentLayer) map.removeLayer(currentLayer);
+
+            try {
+                // El fetch requiere un servidor local para funcionar
+                const response = await fetch(filename);
+                if (!response.ok) throw new Error(`No se pudo encontrar ${filename}`);
+                
+                const data = await response.json();
+
+                currentLayer = L.geoJSON(data, {
+                    style: {
+                        color: isDept ? "#e11d48" : "#475569",
+                        weight: isDept ? 3 : 1,
+                        fillOpacity: 0.15,
+                        fillColor: isDept ? "#e11d48" : "#94a3b8"
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const name = feature.properties.NOM_DEP || feature.properties.NOM_MUN;
+                        layer.bindTooltip(name, { sticky: true });
+                        
+                        layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.4 }));
+                        layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.15 }));
+                    }
+                }).addTo(map);
+
+                // Ajustar zoom automáticamente
+                map.flyTo([-17.7833, -63.1821], isDept ? 6 : 7);
+
+            } catch (err) {
+                console.error("Error detallado:", err);
+                alert("ERROR: Para cargar los archivos JSON necesitas abrir este HTML usando un servidor local (Live Server o Python).");
+            }
+        }
+
+        function changeView(mode) {
+            document.getElementById('btn-dept').classList.toggle('active-btn', mode === 'dept');
+            document.getElementById('btn-mun').classList.toggle('active-btn', mode === 'mun');
+            
+            const file = mode === 'dept' ? 'scz_departamento.json' : 'scz_municipios.json';
+            loadLayer(file, mode === 'dept');
+        }
+
+        // Carga inicial
+        loadLayer('scz_departamento.json', true);
+    </script>
+</body>
+</html>
